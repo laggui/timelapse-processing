@@ -152,7 +152,7 @@ class TimelapseApp(QMainWindow):
             self.dragndrop.setVisible(True)
     
     def helpWindow(self):
-        mboxtitle = 'pipixccafy'
+        mboxtitle = 'Help'
         mboxmsg = ('If your time-lapse is not displaying in the proper order, or there seems to be a jump '
         'cut to previous frames, make sure the last item clicked when the images were dragged was '
         'the first image of your sequence. The order of selection is preserved during drag and drop.')
