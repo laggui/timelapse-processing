@@ -4,8 +4,9 @@ from PyQt5.QtWidgets import QWidget, QDesktopWidget, QMessageBox
 from PyQt5.QtWidgets import QHBoxLayout, QVBoxLayout, QGridLayout
 from PyQt5.QtWidgets import QGroupBox, QPushButton, QSlider
 from PyQt5.QtWidgets import QLabel, QFileDialog, QSizePolicy
-from PyQt5.QtGui import QIcon, QDrag, QPixmap
+from PyQt5.QtGui import QIcon, QDrag, QPixmap, QImage
 from PyQt5.QtCore import Qt
+from timelapse_processing import ImageList, Image, loadImage, toRGB
 
 '''
 QApplication: manages application object.
@@ -38,12 +39,17 @@ class DropButton(QPushButton):
         m = e.mimeData()
         if m.hasUrls():
             e.accept()
-            [self.parent().parent().origImages.append(u.toLocalFile()) for u in m.urls()]
+            self.parent().parent().statusBar().showMessage('Processing...')
+            #[self.parent().parent().origImages.append(u.toLocalFile()) for u in m.urls()]
+            [self.parent().parent().origImages.append(Image(loadImage(u.toLocalFile()))) for u in m.urls()]
             self.setVisible(False)
             self.parent().parent().updateViewer(0)
             self.parent().parent().sld.setRange(0, len(self.parent().parent().origImages) - 1)
             self.parent().parent().sld.setValue(0)
             # call image processing
+            newImages = ImageList()
+
+            self.parent().parent().statusBar().showMessage('Ready')
         else:
             e.ignore()
 
@@ -57,7 +63,8 @@ class TimelapseApp(QMainWindow):
         self.top = 100
         self.width = 640
         self.height = 480
-        self.origImages = []
+        self.origImages = ImageList()
+        self.processedImages = ImageList()
         self.initUI()
 
     def initUI(self):
@@ -128,13 +135,15 @@ class TimelapseApp(QMainWindow):
     def updateViewerIndex(self):
         self.updateViewer(self.sld.value())
 
-    def updateViewer(self, imagenumber):
-        if self.origImages:
-            pixmap1 = QPixmap(self.origImages[imagenumber])
+    def updateViewer(self, imageNumber):
+        if len(self.origImages) > 0:
+            rgb = toRGB(self.origImages[imageNumber].img)
+            qimage = QImage(rgb, rgb.shape[1], rgb.shape[0], QImage.Format_RGB888)
+            pixmap1 = QPixmap(qimage)
             pixmap1 = pixmap1.scaledToWidth(self.width*0.45)
             self.img1.setPixmap(pixmap1)
 
-            pixmap2 = QPixmap(self.origImages[imagenumber])
+            pixmap2 = QPixmap(qimage)
             pixmap2 = pixmap2.scaledToWidth(self.width*0.45)
             self.img2.setPixmap(pixmap2)
     
@@ -144,7 +153,8 @@ class TimelapseApp(QMainWindow):
         reply = QMessageBox.question(self, mboxtitle, mboxmsg,
             QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
         if reply == QMessageBox.Yes:
-            self.origImages = []
+            del self.origImages[:]
+            del self.processedImages[:]
             self.img1.clear()
             self.img2.clear()
             self.sld.setValue(0)
