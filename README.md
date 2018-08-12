@@ -9,6 +9,4 @@ Quick description of common problems in time-lapse shooting:
 http://www.learntimelapse.com/time-lapse-exposure-avoiding-flicker-and-dragging-shutter/
 
 # TO-DO
-* Exposure fix
-* Video player side by side comparison of original images with fixed 
-time-lapse (with play button, time slider)
+* Improve graphical user interface experience
