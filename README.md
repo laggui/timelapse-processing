@@ -10,3 +10,4 @@ http://www.learntimelapse.com/time-lapse-exposure-avoiding-flicker-and-dragging-
 
 # TO-DO
 * Improve graphical user interface experience
+* Option to save output images
