@@ -8,13 +8,46 @@ def loadImage(path):
 def toRGB(image):
     return cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
-def histMatch(sourceImage, expImage):
+def histMatch(sourceImage, templateImage):
     '''
-    Matches the histogram of expImage to sourceImage in order to fix lightness/exposure
-    of the expImage.
+    Matches the histogram of sourceImage to the templateImage in order to fix lightness/exposure
+    of the sourceImage.
     '''
-    expImage = sourceImage
-    return expImage
+    if sourceImage.ndim > 2:
+        # Convert to LAB color space to work on lightness channel
+        sourceLab = cv2.cvtColor(sourceImage, cv2.COLOR_BGR2LAB)
+        sourceL,sourceA,sourceB = cv2.split(sourceLab)
+        tempLab = cv2.cvtColor(templateImage, cv2.COLOR_BGR2LAB)
+        tempL,_,_ = cv2.split(tempLab)
+
+        # Get histogram of lightness channel for images
+        sVal, binIdx, sCounts = np.unique(sourceL.ravel(), return_inverse=True, return_counts=True)
+        scdf = np.cumsum(sCounts).astype(np.float64) # cumulative distribution function
+        scdf /= scdf[-1] # normalize
+
+        tVal, tCounts = np.unique(tempL.ravel(), return_counts=True)
+        tcdf = np.cumsum(tCounts).astype(np.float64) # cumulative distribution function
+        tcdf /= tcdf[-1] # normalize
+
+        # Use linear interpolation of cdf to map new pixel values
+        matched = np.rint(np.interp(scdf, tcdf, tVal)).astype(np.uint8)
+        sourceL = matched[binIdx].reshape(sourceL.shape)
+        matchedImage = cv2.merge([sourceL, sourceA, sourceB])
+        matchedImage = cv2.cvtColor(matchedImage.astype(np.uint8), cv2.COLOR_LAB2BGR)
+    elif sourceImage.ndim == 1:
+        # Get histogram of gray images
+        sVal, binIdx, sCounts = np.unique(sourceImage.ravel(), return_inverse=True, return_counts=True)
+        scdf = np.cumsum(sCounts).astype(np.float64) # cumulative distribution function
+        scdf /= scdf[-1] # normalize
+
+        tVal, tCounts = np.unique(templateImage.ravel(), return_counts=True)
+        tcdf = np.cumsum(tCounts).astype(np.float64) # cumulative distribution function
+        tcdf /= tcdf[-1] # normalize
+
+        # Use linear interpolation of cdf to map new pixel values
+        matched = np.rint(np.interp(scdf, tcdf, tVal)).astype(np.uint8)
+        matchedImage = matched[binIdx].reshape(sourceImage.shape)
+    return matchedImage
 
 class Image:
     '''
@@ -26,8 +59,8 @@ class Image:
     
     def _getLightness(self):
         lab = cv2.cvtColor(self.img, cv2.COLOR_BGR2LAB)
-        l_channel,_,_ = cv2.split(lab)
-        return int(np.mean(l_channel))
+        lightness,_,_ = cv2.split(lab)
+        return int(np.mean(lightness))
 
 class ImageList(MutableSequence):
     '''
@@ -40,21 +73,23 @@ class ImageList(MutableSequence):
         if not isinstance(value, Image):
             raise TypeError('Invalid instance passed when trying to set item value.')
     
-    def __init__(self):
-        self._imgList = []
+    def __init__(self, images=[]):
+        self._imgList = images
         self.lightMed = 0
         self.lightMad = 0
     
     def computeStats(self):
-        lightness = np.array((img.lightness for img in self._imgList))
+        lightness = np.array([img.lightness for img in self._imgList])
         self.lightMed = np.median(lightness)
         self.lightMad = np.median(abs(lightness - self.lightMed))
     
     def fixExposure(self):
-        for i, img in enumerate(self._imgList):
-            if (img.lightness < (self.lightMed - self.lightMad) or 
-                img.lightness > (self.lightMed + self.lightMad)):
-                self._imgList[i].img = histMatch(self._imgList[i-1].img, img)
+        temp = next(obj for obj in self._imgList if obj.lightness==self.lightMed)
+        for i, obj in enumerate(self._imgList):
+            if (obj.lightness < (self.lightMed - self.lightMad) or 
+                obj.lightness > (self.lightMed + self.lightMad)):
+                fixed = histMatch(obj.img, temp.img)
+                self._imgList[i] = Image(fixed)
     
     def __len__(self):
         return len(self._imgList)
