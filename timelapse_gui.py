@@ -43,13 +43,16 @@ class DropButton(QPushButton):
             #[self.parent().parent().origImages.append(u.toLocalFile()) for u in m.urls()]
             [self.parent().parent().origImages.append(Image(loadImage(u.toLocalFile()))) for u in m.urls()]
             self.setVisible(False)
+
+            newImages = ImageList(self.parent().parent().origImages[:])
+            newImages.computeStats()
+            newImages.fixExposure()
+            self.parent().parent().processedImages = newImages
+            self.parent().parent().statusBar().showMessage('Ready')
+            
             self.parent().parent().updateViewer(0)
             self.parent().parent().sld.setRange(0, len(self.parent().parent().origImages) - 1)
             self.parent().parent().sld.setValue(0)
-            # call image processing
-            newImages = ImageList()
-
-            self.parent().parent().statusBar().showMessage('Ready')
         else:
             e.ignore()
 
@@ -79,7 +82,7 @@ class TimelapseApp(QMainWindow):
         exitAct.triggered.connect(self.close)
         fileMenu.addAction(exitAct)
         helpMenu = mainMenu.addMenu('Help')
-        aboutAct = QAction('Drag N Drop', self)
+        aboutAct = QAction('Drag n Drop', self)
         aboutAct.triggered.connect(self.helpWindow)
         helpMenu.addAction(aboutAct)
         
@@ -142,7 +145,10 @@ class TimelapseApp(QMainWindow):
             pixmap1 = QPixmap(qimage)
             pixmap1 = pixmap1.scaledToWidth(self.width*0.45)
             self.img1.setPixmap(pixmap1)
-
+            
+        if len(self.processedImages) > 0:
+            rgb = toRGB(self.processedImages[imageNumber].img)
+            qimage = QImage(rgb, rgb.shape[1], rgb.shape[0], QImage.Format_RGB888)
             pixmap2 = QPixmap(qimage)
             pixmap2 = pixmap2.scaledToWidth(self.width*0.45)
             self.img2.setPixmap(pixmap2)
