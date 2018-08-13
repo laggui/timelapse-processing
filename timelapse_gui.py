@@ -1,11 +1,13 @@
 import sys
+import os
+import imghdr
 from PyQt5.QtWidgets import QApplication, QMainWindow, QAction
 from PyQt5.QtWidgets import QWidget, QDesktopWidget, QMessageBox
 from PyQt5.QtWidgets import QHBoxLayout, QVBoxLayout, QGridLayout
 from PyQt5.QtWidgets import QGroupBox, QPushButton, QSlider
 from PyQt5.QtWidgets import QLabel, QFileDialog, QSizePolicy
 from PyQt5.QtGui import QIcon, QDrag, QPixmap, QImage
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, pyqtSignal
 from timelapse_processing import ImageList, Image, loadImage, toRGB
 
 '''
@@ -16,6 +18,8 @@ QDesktopWidget: provides access to user screen information.
 '''
 
 class DropButton(QPushButton):
+    itemDropped = pyqtSignal(list)
+
     def __init__(self, title, parent):
         super().__init__(title, parent)
         self.setVisible(True)
@@ -39,20 +43,10 @@ class DropButton(QPushButton):
         m = e.mimeData()
         if m.hasUrls():
             e.accept()
-            self.parent().parent().statusBar().showMessage('Processing...')
-            #[self.parent().parent().origImages.append(u.toLocalFile()) for u in m.urls()]
-            [self.parent().parent().origImages.append(Image(loadImage(u.toLocalFile()))) for u in m.urls()]
+            links = []
+            [links.append(u.toLocalFile()) for u in m.urls()]
+            self.itemDropped.emit(links)
             self.setVisible(False)
-
-            newImages = ImageList(self.parent().parent().origImages[:])
-            newImages.computeStats()
-            newImages.fixExposure()
-            self.parent().parent().processedImages = newImages
-            self.parent().parent().statusBar().showMessage('Ready')
-            
-            self.parent().parent().updateViewer(0)
-            self.parent().parent().sld.setRange(0, len(self.parent().parent().origImages) - 1)
-            self.parent().parent().sld.setValue(0)
         else:
             e.ignore()
 
@@ -68,25 +62,32 @@ class TimelapseApp(QMainWindow):
         self.height = 480
         self.origImages = ImageList()
         self.processedImages = ImageList()
+        self.imageFormat = ''
         self.initUI()
 
     def initUI(self):
         mainMenu = self.menuBar()
-        fileMenu = mainMenu.addMenu('File')
+        self.fileMenu = mainMenu.addMenu('File')
         reloadAct = QAction('New Session', self)
         reloadAct.setShortcut('Ctrl+R')
         reloadAct.triggered.connect(self.reloadSession)
-        fileMenu.addAction(reloadAct)
+        self.fileMenu.addAction(reloadAct)
+        saveAct = QAction('Save Images', self)
+        saveAct.setShortcut('Ctrl+S')
+        saveAct.triggered.connect(self.saveImages)
+        self.fileMenu.addAction(saveAct)
+        saveAct.setDisabled(True)
         exitAct = QAction('Exit', self)
         exitAct.setShortcut('Ctrl+Q')
         exitAct.triggered.connect(self.close)
-        fileMenu.addAction(exitAct)
+        self.fileMenu.addAction(exitAct)
         helpMenu = mainMenu.addMenu('Help')
         aboutAct = QAction('Drag n Drop', self)
         aboutAct.triggered.connect(self.helpWindow)
         helpMenu.addAction(aboutAct)
-        
+
         self.createGridLayout()
+        self.dragndrop.itemDropped.connect(self.pictureDropped)
 
         self.statusBar()
         self.statusBar().setStyleSheet("background-color: white;")
@@ -152,6 +153,34 @@ class TimelapseApp(QMainWindow):
             pixmap2 = QPixmap(qimage)
             pixmap2 = pixmap2.scaledToWidth(self.width*0.45)
             self.img2.setPixmap(pixmap2)
+    
+    def pictureDropped(self, links):
+        self.statusBar().showMessage('Processing...')
+        self.imageFormat = imghdr.what(links[0])
+        [self.origImages.append(Image(loadImage(link))) for link in links]
+        newImages = ImageList(self.origImages[:])
+        newImages.computeStats()
+        newImages.fixExposure()
+        self.processedImages = newImages
+
+        self.fileMenu.actions()[1].setDisabled(False)
+
+        self.updateViewer(0)
+        self.sld.setRange(0, len(self.origImages) - 1)
+        self.sld.setValue(0)
+        self.statusBar().showMessage('Ready')
+    
+    def saveImages(self):
+        self.statusBar().showMessage('Saving Images...')
+        newDir = '/processed-images'
+        destDir = QFileDialog.getExistingDirectory(self, "Select Directory") + newDir
+        if not os.path.exists(destDir):
+            os.makedirs(destDir)
+        for i,obj in enumerate(self.processedImages):
+            rgb = toRGB(obj.img)
+            qimage = QImage(rgb, rgb.shape[1], rgb.shape[0], QImage.Format_RGB888)
+            qimage.save(destDir + '/processed_image' + str(i+1).zfill(4) + '.' + self.imageFormat)
+        self.statusBar().showMessage('Ready')
     
     def reloadSession(self):
         mboxtitle = 'Warning'
