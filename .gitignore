@@ -1,0 +1,8 @@
+# vscode stuff
+.vscode/
+
+# python stuff
+__pycache__/
+
+# example image sequences
+example/
