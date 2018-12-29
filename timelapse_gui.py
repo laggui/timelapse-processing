@@ -215,8 +215,8 @@ class TimelapseApp(QMainWindow):
     def reloadSession(self):
         mboxtitle = 'Warning'
         mboxmsg = 'Are you sure you want to start a new session?\nAll unsaved changes will be lost.'
-        reply = QMessageBox.question(self, mboxtitle, mboxmsg,
-            QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        reply = QMessageBox.warning(self, mboxtitle, mboxmsg,
+                                    QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
         if reply == QMessageBox.Yes:
             del self.origImages[:]
             del self.processedImages[:]
@@ -234,8 +234,8 @@ class TimelapseApp(QMainWindow):
         'cut to previous frames, make sure the last item clicked when the images were dragged was '
         'the first image of your sequence. The order of selection is preserved during drag and drop.')
                    
-        reply = QMessageBox.question(self, mboxtitle, mboxmsg,
-            QMessageBox.Ok, QMessageBox.Ok)
+        reply = QMessageBox.information(self, mboxtitle, mboxmsg,
+                                        QMessageBox.Ok, QMessageBox.Ok)
 
     def center(self):
         qtRectangle = self.frameGeometry()
@@ -246,8 +246,8 @@ class TimelapseApp(QMainWindow):
     def closeEvent(self, event):
         mboxtitle = 'Message'
         mboxmsg = 'Are you sure you want to quit?'
-        reply = QMessageBox.question(self, mboxtitle, mboxmsg,
-                                     QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        reply = QMessageBox.warning(self, mboxtitle, mboxmsg,
+                                    QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
         if reply == QMessageBox.Yes:
             event.accept()
         else:
