@@ -14,10 +14,7 @@ When the application is ready, select the sequence of images you wish to process
 
 ![app demo](example/demo.gif)
 
-**Note: no task parallelism is currently implemented, which means that 
-the current UI will block when processing images. This simple project 
-was intended as an introductory project to PyQt.**
+**Note: This simple project was intended as an introductory project to PyQt.**
 
 ## TO-DO
-* Task parallelism so as to not block the GUI when processing images
 * Improve graphical user interface experience

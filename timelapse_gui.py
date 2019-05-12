@@ -10,14 +10,17 @@ from PyQt5.QtGui import QIcon, QDrag, QPixmap, QImage
 from PyQt5.QtCore import Qt, pyqtSignal
 from timelapse_processing import ImageList, Image, loadImage, toRGB
 
-'''
+"""
 QApplication: manages application object.
 QWidget: base class of all user interface objects. Receives events from the window system.
 QMainWindow: main application window - framework to build the apps' user interface.
 QDesktopWidget: provides access to user screen information.
-'''
+"""
 
 class DropButton(QPushButton):
+    """
+    Drag n Drop area widget
+    """
     itemDropped = pyqtSignal(list)
 
     def __init__(self, title, width, height, parent):
@@ -52,6 +55,9 @@ class DropButton(QPushButton):
 
 
 class TimelapseApp(QMainWindow):
+    """
+    Timelapse exposure fix application window
+    """
     def __init__(self):
         super().__init__()
         self.title = 'Timelapse Exposure Fix'

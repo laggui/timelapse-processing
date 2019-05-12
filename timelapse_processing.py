@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 from collections.abc import MutableSequence
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 def loadImage(path):
     return cv2.imread(path, 1)
@@ -9,10 +10,10 @@ def toRGB(image):
     return cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
 def histMatch(sourceImage, templateImage):
-    '''
+    """
     Matches the histogram of sourceImage to the templateImage in order to fix lightness/exposure
     of the sourceImage.
-    '''
+    """
     if sourceImage.ndim > 2:
         # Convert to LAB color space to work on lightness channel
         sourceLab = cv2.cvtColor(sourceImage, cv2.COLOR_BGR2LAB)
@@ -50,9 +51,9 @@ def histMatch(sourceImage, templateImage):
     return matchedImage
 
 class Image:
-    '''
+    """
     An Image object.
-    '''
+    """
     def __init__(self, img):
         self.img = img
         self.lightness = self._getLightness()
@@ -63,11 +64,11 @@ class Image:
         return int(np.mean(lightness))
 
 class ImageList(MutableSequence):
-    '''
+    """
     A class that behaves like a list, containing the Image frames in the time-lapse animation,
     as well as statistics on the lightness of the images in the list such as the median and 
     median absolute deviation (mad). These stats are useful for processing.
-    '''
+    """
     @staticmethod
     def __checkValue(value):
         if not isinstance(value, Image):
@@ -79,17 +80,32 @@ class ImageList(MutableSequence):
         self.lightMad = 0
     
     def computeStats(self):
+        """
+        Compute image list statistics (lightness median and mean absolute deviation)
+        """
         lightness = np.array([img.lightness for img in self._imgList])
         self.lightMed = np.median(lightness)
         self.lightMad = np.median(abs(lightness - self.lightMed))
     
     def fixExposure(self):
+        """
+        Iterate through list of images and fix exposure issues by matching histogram
+        of the image to a median reference frame of the sequence
+        """
         temp = next(obj for obj in self._imgList if obj.lightness==self.lightMed)
-        for i, obj in enumerate(self._imgList):
-            if (obj.lightness < (self.lightMed - self.lightMad) or 
-                obj.lightness > (self.lightMed + self.lightMad)):
-                fixed = histMatch(obj.img, temp.img)
-                self._imgList[i] = Image(fixed)
+        with ThreadPoolExecutor() as executor:
+            future = [executor.submit(self._fixImageExposure, obj, i, temp) for i, obj in enumerate(self._imgList)]
+            for f in as_completed(future):
+                print(f.result())
+            
+    def _fixImageExposure(self, imageObject, imageIndex, referenceObj):
+        status = 'Unchanged'
+        if (imageObject.lightness < (self.lightMed - self.lightMad) or 
+            imageObject.lightness > (self.lightMed + self.lightMad)):
+            fixed = histMatch(imageObject.img, referenceObj.img)
+            self._imgList[imageIndex] = Image(fixed)
+            status = 'Fixed'
+        return status
     
     def __len__(self):
         return len(self._imgList)
